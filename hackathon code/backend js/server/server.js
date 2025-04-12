@@ -11,6 +11,7 @@ const path = require('path');
 const careerRoutes = require('../routes/careerRoutes');
 const chatRoutes = require('../routes/chatRoutes');
 const assessmentRoutes = require('../routes/assessmentRoutes');
+const authRoutes = require('../routes/authRoutes');
 
 // Create Express app
 const app = express();
@@ -30,16 +31,29 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve static files from frontend
-app.use(express.static(path.join(__dirname, '../../..')));
+const staticPath = path.join(__dirname, '../../..');
+app.use(express.static(staticPath));
+console.log('Serving static files from:', staticPath);
 
 // API Routes
 app.use('/api/careers', careerRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/assessment', assessmentRoutes);
+app.use('/api/auth', authRoutes);
+
+// API error handling middleware
+app.use((err, req, res, next) => {
+    console.error('API Error:', err);
+    res.status(500).json({ 
+        error: 'Server error', 
+        message: err.message,
+        stack: process.env.NODE_ENV === 'production' ? '🥞' : err.stack
+    });
+});
 
 // Serve the main HTML file for any other route
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../../../index.html'));
+    res.sendFile(path.join(staticPath, 'index.html'));
 });
 
 // Socket.io connection handling
