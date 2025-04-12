@@ -21,6 +21,29 @@ router.post('/skills', (req, res) => {
     }
 });
 
+// Process skills and return recommendations (for API fallback)
+router.post('/process', (req, res) => {
+    try {
+        const { skills } = req.body;
+        
+        if (!skills) {
+            return res.status(400).json({ error: 'Skills data is required' });
+        }
+        
+        // Process skills to get recommendations
+        const results = processSkillsAssessment(skills);
+        
+        // Return just the recommendations for the frontend
+        res.json({ 
+            success: true, 
+            recommendations: results.careerRecommendations 
+        });
+    } catch (error) {
+        console.error('Error processing skills for recommendations:', error);
+        res.status(500).json({ error: 'Failed to process skills for recommendations' });
+    }
+});
+
 // Get skills for a specific career
 router.get('/skills-for-career/:career', (req, res) => {
     try {

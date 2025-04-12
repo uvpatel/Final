@@ -1,6 +1,73 @@
 // script.js - Career Compass Frontend JavaScript
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Socket.io connection
+    const socket = io();
+    
+    // Setup socket event listeners
+    socket.on('connect', () => {
+        console.log('Connected to server');
+    });
+    
+    socket.on('botResponse', (message) => {
+        addMessageToChat(message, 'bot');
+    });
+    
+    socket.on('careerRecommendations', (recommendations) => {
+        displayRecommendations(recommendations);
+    });
+    
+    socket.on('error', (errorMessage) => {
+        addMessageToChat(`Error: ${errorMessage}`, 'bot error');
+    });
+    
+    // Career API Interaction Functions
+    
+    // Get career recommendations based on skills
+    function getCareerRecommendations(skills) {
+        return fetch('/api/careers/recommendations', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ skills }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                return data.recommendations;
+            } else {
+                throw new Error(data.error || 'Failed to get recommendations');
+            }
+        });
+    }
+    
+    // Get details about a specific career
+    function getCareerDetails(career) {
+        return fetch(`/api/careers/details/${encodeURIComponent(career)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                return data.details;
+            } else {
+                throw new Error(data.error || 'Failed to get career details');
+            }
+        });
+    }
+    
+    // Get market demand data
+    function getMarketDemandData() {
+        return fetch('/api/careers/market-demand')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                return data.marketData;
+            } else {
+                throw new Error(data.error || 'Failed to get market demand data');
+            }
+        });
+    }
+    
     // Mobile Menu Toggle
     const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
     const navLinks = document.querySelector('.nav-links');
@@ -70,10 +137,60 @@ document.addEventListener('DOMContentLoaded', function() {
                 skills[skill] = parseInt(value);
             });
             
-            // Process skills and show chatbot with recommendations
-            processSkills(skills);
+            // Send skills to the server using Socket.io
+            socket.emit('assessmentResults', skills);
+            
+            // Also use the Career API as a backup
+            getCareerRecommendations(skills)
+                .then(recommendations => {
+                    if (!socket.connected) {
+                        displayRecommendations(recommendations);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    // Fallback to client-side processing
+                    const clientRecommendations = processSkills(skills);
+                    displayRecommendations(clientRecommendations);
+                });
+            
             showChatbot();
         });
+    }
+    
+    // Career detail view
+    const recommendationsList = document.querySelector('.recommendations-list');
+    if (recommendationsList) {
+        recommendationsList.addEventListener('click', function(e) {
+            if (e.target.classList.contains('view-details')) {
+                const career = e.target.getAttribute('data-career');
+                if (career) {
+                    getCareerDetails(career)
+                        .then(details => {
+                            displayCareerDetails(details);
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            addMessageToChat(`Error fetching details for ${career}. Please try again.`, 'bot error');
+                        });
+                }
+            }
+        });
+    }
+    
+    // Display career details in the chat
+    function displayCareerDetails(details) {
+        let detailsHTML = `<div class="career-details">
+            <h3>${details.title || 'Career Details'}</h3>
+            <p><strong>Description:</strong> ${details.description}</p>
+            <p><strong>Required Skills:</strong> ${details.skills.join(', ')}</p>
+            <p><strong>Education:</strong> ${details.education}</p>
+            <p><strong>Salary Range:</strong> ${details.salary}</p>
+            <p><strong>Growth Outlook:</strong> ${details.growth}</p>
+            <p><strong>Career Path:</strong> ${details.paths.join(' → ')}</p>
+        </div>`;
+        
+        addMessageToChat(detailsHTML, 'bot');
     }
     
     // Process skills and generate career recommendations
@@ -211,29 +328,64 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Display recommendations in chatbot
     function displayRecommendations(recommendations) {
-        const chatMessages = document.querySelector('.chat-messages');
+        let recommendationsHTML = '<div class="recommendations">';
+        recommendationsHTML += '<h3>Career Recommendations</h3>';
+        recommendationsHTML += '<ul class="recommendations-list">';
         
-        if (chatMessages) {
-            // Create recommendation message
-            const message = document.createElement('div');
-            message.className = 'message bot-message';
-            
-            let messageContent = `<p>Based on your skills assessment, here are some career paths that might be a good fit for you:</p>
-            <ul style="margin-top: 10px; margin-left: 20px;">`;
-            
-            recommendations.forEach(rec => {
-                messageContent += `<li style="margin-bottom: 5px;">${rec}</li>`;
-            });
-            
-            messageContent += `</ul>
-            <p style="margin-top: 10px;">Would you like more information about any of these careers? Or would you like resume tips for these roles?</p>`;
-            
-            message.innerHTML = messageContent;
-            chatMessages.appendChild(message);
-            
-            // Scroll to bottom of chat
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+        recommendations.forEach(career => {
+            recommendationsHTML += `<li>
+                <span class="career-title">${career}</span>
+                <button class="view-details" data-career="${career}">View Details</button>
+            </li>`;
+        });
+        
+        recommendationsHTML += '</ul>';
+        
+        // Add market demand button
+        recommendationsHTML += '<button id="viewMarketData" class="btn-secondary">View Market Trends</button>';
+        
+        recommendationsHTML += '</div>';
+        
+        addMessageToChat(recommendationsHTML, 'bot');
+        
+        // Add event listener for market data button
+        setTimeout(() => {
+            const marketDataBtn = document.getElementById('viewMarketData');
+            if (marketDataBtn) {
+                marketDataBtn.addEventListener('click', function() {
+                    getMarketDemandData()
+                        .then(marketData => {
+                            displayMarketData(marketData);
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            addMessageToChat('Error fetching market data. Please try again.', 'bot error');
+                        });
+                });
+            }
+        }, 100);
+    }
+    
+    // Display market demand data
+    function displayMarketData(marketData) {
+        let marketHTML = '<div class="market-demand">';
+        marketHTML += '<h3>Market Demand by Industry</h3>';
+        marketHTML += '<ul class="industry-list">';
+        
+        for (const [industry, data] of Object.entries(marketData)) {
+            marketHTML += `<li>
+                <div class="industry-header">
+                    <h4>${industry.charAt(0).toUpperCase() + industry.slice(1)}</h4>
+                    <span class="demand-badge ${data.demand.toLowerCase()}">${data.demand}</span>
+                </div>
+                <p>Growth: ${data.growth}%</p>
+                <p>Top Skills: ${data.topSkills.join(', ')}</p>
+            </li>`;
         }
+        
+        marketHTML += '</ul></div>';
+        
+        addMessageToChat(marketHTML, 'bot');
     }
     
     // Chatbot Toggle
@@ -280,17 +432,34 @@ document.addEventListener('DOMContentLoaded', function() {
     function sendUserMessage() {
         const message = userMessageInput.value.trim();
         
-        if (message !== '') {
+        if (message) {
             // Add user message to chat
             addMessageToChat(message, 'user');
             
             // Clear input
             userMessageInput.value = '';
             
-            // Simulate AI response (would integrate with backend API in production)
-            setTimeout(() => {
-                processAIResponse(message);
-            }, 1000);
+            // Send message to the server via Socket.io
+            socket.emit('userMessage', message);
+            
+            // If socket is not connected, use REST API as backup
+            if (!socket.connected) {
+                fetch('/api/chat/message', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    addMessageToChat(data.response, 'bot');
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    processAIResponse(message); // Fallback to client-side response
+                });
+            }
         }
     }
     

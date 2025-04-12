@@ -13,6 +13,8 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
+    <!-- Socket.io client library -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   </head>
   <body>
     <!-- Navigation -->
@@ -25,6 +27,7 @@
           <a href="#features">Features</a>
           <a href="#assessment">Skills Assessment</a>
           <a href="#about">About</a>
+          <a href="ai-advisor.html">AI Advisor</a>
           <a href="#" class="btn btn-primary">Sign Up</a>
         </div>
         <div class="mobile-menu-btn">
@@ -46,7 +49,7 @@
             <a href="#assessment" class="btn btn-primary btn-lg"
               >Start Assessment</a
             >
-            <a href="#advisor" class="btn btn-outline btn-lg"
+            <a href="ai-advisor.html" class="btn btn-outline btn-lg"
               >Talk to Advisor</a
             >
           </div>
@@ -497,6 +500,12 @@
                 <span class="stat-label">Satisfaction</span>
               </div>
             </div>
+            <a
+              href="ai-advisor.html"
+              class="btn btn-primary"
+              style="margin-top: 20px"
+              >Try Our AI Advisor</a
+            >
           </div>
           <div class="about-image">
             <img
@@ -509,30 +518,7 @@
     </section>
 
     <!-- AI Advisor Chatbot -->
-    <div class="chatbot" id="advisor">
-      <div class="chatbot-header">
-        <h3><i class="fas fa-robot"></i> Career Advisor</h3>
-        <button class="chatbot-toggle">
-          <i class="fas fa-chevron-up"></i>
-        </button>
-      </div>
-      <div class="chatbot-body">
-        <div class="chat-messages">
-          <div class="message bot-message">
-            Hello! I'm your AI Career Advisor. How can I help with your career
-            questions today?
-          </div>
-        </div>
-        <div class="chat-input">
-          <input
-            type="text"
-            placeholder="Type your message..."
-            id="userMessage"
-          />
-          <button id="sendMessage"><i class="fas fa-paper-plane"></i></button>
-        </div>
-      </div>
-    </div>
+  
 
     <!-- Footer -->
     <footer>

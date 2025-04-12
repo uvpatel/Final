@@ -1,8 +1,9 @@
 // chatRoutes.js - Routes for chat/AI advisor functionality
 const express = require('express');
 const router = express.Router();
+const openai = require('../config/openai');
 
-// Send a message to the AI advisor
+// Process chat message and return response
 router.post('/message', async (req, res) => {
     try {
         const { message } = req.body;
@@ -11,13 +12,29 @@ router.post('/message', async (req, res) => {
             return res.status(400).json({ error: 'Message is required' });
         }
         
-        // Process message and generate response (would be integrated with OpenAI in production)
-        const response = generateResponse(message);
+        // Process the message using OpenAI
+        const completion = await openai.createChatCompletion({
+            model: 'gpt-3.5-turbo',
+            messages: [
+                {
+                    role: 'system',
+                    content: 'You are a career guidance advisor helping users with their career development. Provide helpful, professional advice about career paths, skill development, job searching, interviewing, and professional growth.'
+                },
+                {
+                    role: 'user',
+                    content: message
+                }
+            ],
+            max_tokens: 150,
+            temperature: 0.7
+        });
+
+        const response = completion.data.choices[0].message.content;
         
         res.json({ success: true, response });
     } catch (error) {
-        console.error('Error processing message:', error);
-        res.status(500).json({ error: 'Failed to process message' });
+        console.error('Error processing chat message:', error);
+        res.status(500).json({ error: 'Failed to process chat message' });
     }
 });
 
@@ -51,7 +68,7 @@ router.get('/resume-tips/:career', (req, res) => {
     }
 });
 
-// Helper function to generate AI response (simplified for demo)
+// Helper function to generate responses (simplified for demo)
 function generateResponse(message) {
     const lowerMessage = message.toLowerCase();
     

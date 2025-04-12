@@ -657,3 +657,174 @@ footer {
     margin-top: 0.5rem;
   }
 }
+
+/* Career Recommendations */
+.recommendations {
+  background-color: #f5f9ff;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 10px;
+}
+
+.recommendations h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #2a41e8;
+  font-size: 18px;
+}
+
+.recommendations-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 15px 0;
+}
+
+.recommendations-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid #e0e6f7;
+  margin-bottom: 5px;
+}
+
+.recommendations-list li:last-child {
+  border-bottom: none;
+}
+
+.career-title {
+  font-weight: 500;
+  color: #333;
+}
+
+.view-details {
+  background-color: #e9f0ff;
+  border: none;
+  color: #2a41e8;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s;
+}
+
+.view-details:hover {
+  background-color: #d1e0ff;
+}
+
+.btn-secondary {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  width: 100%;
+  transition: background-color 0.2s;
+}
+
+.btn-secondary:hover {
+  background-color: #5a6268;
+}
+
+/* Career Details */
+.career-details {
+  background-color: #f5f9ff;
+  border-radius: 8px;
+  padding: 15px;
+}
+
+.career-details h3 {
+  margin-top: 0;
+  color: #2a41e8;
+  margin-bottom: 15px;
+}
+
+.career-details p {
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.career-details strong {
+  color: #333;
+}
+
+/* Market Demand Data */
+.market-demand {
+  background-color: #f5f9ff;
+  border-radius: 8px;
+  padding: 15px;
+}
+
+.market-demand h3 {
+  margin-top: 0;
+  color: #2a41e8;
+  margin-bottom: 15px;
+}
+
+.industry-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.industry-list li {
+  background-color: white;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.industry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.industry-header h4 {
+  margin: 0;
+  color: #333;
+}
+
+.demand-badge {
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.high {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.very.high {
+  background-color: #c3e6cb;
+  color: #155724;
+}
+
+.moderate {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.stable {
+  background-color: #d1ecf1;
+  color: #0c5460;
+}
+
+.low {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+/* Error message style */
+.bot.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
