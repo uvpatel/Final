@@ -1,4 +1,10 @@
-// AI Advisor JavaScript with Gemini API Integration
+// AI Advisor JavaScript with Firebase and OpenAI Integration
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.1/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.3.1/firebase-auth.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+import { saveConversation, getAssessmentHistory } from "./firestore-utils.js";
+import firebaseConfig from './firebase-config.js';
 
 document.addEventListener('DOMContentLoaded', function() {
     // Elements
@@ -6,10 +12,39 @@ document.addEventListener('DOMContentLoaded', function() {
     const userInput = document.getElementById('userInput');
     const sendButton = document.getElementById('sendButton');
     const suggestionChips = document.querySelectorAll('.chip');
+    const loginPrompt = document.getElementById('loginPrompt');
+    const chatContainer = document.getElementById('chatContainer');
+    const loginButton = document.getElementById('login-button');
+    const signupButton = document.getElementById('signup-button');
     
-    // Gemini API Key (replace with your actual API key)
-    const API_KEY = 'YOUR_GEMINI_API_KEY';
-    const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    
+    // OpenAI API Key - this should be securely stored on your backend
+    // For development, we'll use a placeholder that will be replaced with your actual backend call
+    const BACKEND_API_URL = '/api/chat';
+    
+    // Current user
+    let currentUser = null;
+    
+    // Check if user has logged in previously - include all auth methods
+    let hasLoggedInBefore = localStorage.getItem('hasLoggedInBefore') === 'true';
+    let bypassAuth = localStorage.getItem('bypassAuth') === 'true';
+    let tempAccess = localStorage.getItem('tempAdvisorAccess') === 'true';
+    
+    // Determine if user has any form of authorization
+    let isAuthorized = hasLoggedInBefore || bypassAuth || tempAccess;
+    
+    console.log("Auth status on load:");
+    console.log("- hasLoggedInBefore:", hasLoggedInBefore);
+    console.log("- bypassAuth:", bypassAuth);
+    console.log("- tempAccess:", tempAccess);
+    console.log("- isAuthorized:", isAuthorized);
+
+    // Chat history for context
+    let chatHistory = [];
     
     // Mobile menu toggle
     const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
@@ -21,22 +56,194 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Event listeners
-    sendButton.addEventListener('click', handleUserMessage);
-    userInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            handleUserMessage();
+    // Function to process skills assessment data
+    function processSkillsAssessment(skills) {
+        // Find top skills (rating of 4 or 5)
+        const topSkills = [];
+        for (const [key, value] of Object.entries(skills)) {
+            if (value >= 4) {
+                topSkills.push(key);
+            }
+        }
+        
+        // Calculate category strengths
+        const technicalSkills = ['programming', 'data-analysis', 'web-development', 'security', 'cloud'];
+        const softSkills = ['communication', 'leadership', 'problem-solving', 'teamwork', 'adaptability'];
+        const industrySkills = ['healthcare', 'finance', 'technology', 'marketing', 'education'];
+        
+        const categories = {
+            technical: calculateCategoryScore(skills, technicalSkills),
+            soft: calculateCategoryScore(skills, softSkills),
+            industry: calculateCategoryScore(skills, industrySkills)
+        };
+        
+        // Determine top category
+        let topCategory = 'balanced';
+        if (categories.technical > categories.soft && categories.technical > 3) {
+            topCategory = 'technical';
+        } else if (categories.soft > categories.technical && categories.soft > 3) {
+            topCategory = 'soft';
+        }
+        
+        // Determine top industry
+        let topIndustry = '';
+        let highestIndustryScore = 0;
+        
+        for (const skill of industrySkills) {
+            if (skills[skill] && skills[skill] > highestIndustryScore) {
+                highestIndustryScore = skills[skill];
+                topIndustry = skill;
+            }
+        }
+        
+        return {
+            topSkills,
+            topCategory,
+            topIndustry,
+            categories
+        };
+    }
+    
+    // Calculate score for a category
+    function calculateCategoryScore(skills, category) {
+        let score = 0;
+        let count = 0;
+        
+        category.forEach(skill => {
+            if (skills[skill]) {
+                score += skills[skill];
+                count++;
+            }
+        });
+        
+        return count > 0 ? score / count : 0;
+    }
+    
+    // Check for URL parameters that indicate the source
+    function checkForRedirectSource() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const source = urlParams.get('source');
+        
+        if (source === 'assessment') {
+            // Get skills assessment data from session storage
+            const skillsData = sessionStorage.getItem('skillsAssessment');
+            if (skillsData) {
+                const skills = JSON.parse(skillsData);
+                
+                // Process the skills data
+                const assessmentResult = processSkillsAssessment(skills);
+                
+                // Add assessment-based welcome message
+                setTimeout(() => {
+                    // Give some time for the auth check to complete
+                    const initialMessage = generateAssessmentWelcomeMessage(assessmentResult);
+                    addMessageToChat(initialMessage, 'bot');
+                }, 1000);
+            }
+        }
+    }
+    
+    // Generate welcome message based on assessment
+    function generateAssessmentWelcomeMessage(assessment) {
+        let message = `<p>I've analyzed your skills assessment, and here's what I found:</p>`;
+        
+        if (assessment.topSkills.length > 0) {
+            message += `<p>Your top skills are: <strong>${assessment.topSkills.join(', ')}</strong></p>`;
+        }
+        
+        message += `<p>Your profile shows strong ${assessment.topCategory} skills`;
+        
+        if (assessment.topIndustry) {
+            message += ` with interest in the ${assessment.topIndustry} industry.`;
+        } else {
+            message += `.`;
+        }
+        
+        message += `</p><p>I can help you explore career paths that align with these strengths or suggest ways to enhance your skills further. What would you like to know about?</p>`;
+        
+        return message;
+    }
+    
+    // Check authentication state
+    onAuthStateChanged(auth, async (user) => {
+        console.log("Auth state changed, user:", user ? "logged in" : "not logged in");
+        console.log("hasLoggedInBefore:", hasLoggedInBefore);
+        
+        if (user) {
+            // User is signed in
+            currentUser = user;
+            
+            if (loginPrompt && chatContainer) {
+                loginPrompt.style.display = 'none';
+                chatContainer.style.display = 'flex';
+            }
+            
+            // Check if redirected after login
+            const redirectPath = sessionStorage.getItem('redirectAfterLogin');
+            if (redirectPath) {
+                sessionStorage.removeItem('redirectAfterLogin');
+                // Don't redirect if we're already on the right page
+                if (!window.location.href.includes(redirectPath)) {
+                    window.location.href = redirectPath;
+                    return;
+                }
+            }
+            
+            // Check for assessment data in the URL
+            checkForRedirectSource();
+            
+            // Clear user input field and focus
+            if (userInput) {
+                userInput.value = '';
+                userInput.focus();
+            }
+        } else {
+            // User is signed out
+            currentUser = null;
+            
+            if (loginPrompt && chatContainer) {
+                // If the user has logged in before or has any other authorization, show chat interface instead of login prompt
+                if (hasLoggedInBefore || bypassAuth || tempAccess || isAuthorized) {
+                    console.log("User has some form of authorization, showing chat interface");
+                    loginPrompt.style.display = 'none';
+                    chatContainer.style.display = 'flex';
+                    
+                    // Focus on input field
+                    if (userInput) {
+                        userInput.focus();
+                    }
+                } else {
+                    console.log("User has no authorization, showing login prompt");
+                    loginPrompt.style.display = 'flex';
+                    chatContainer.style.display = 'none';
+                }
+            }
         }
     });
     
-    // Suggestion chip event listeners
-    suggestionChips.forEach(chip => {
-        chip.addEventListener('click', function() {
-            const query = this.getAttribute('data-query');
-            userInput.value = query;
-            handleUserMessage();
+    // Event listeners
+    if (sendButton) {
+        sendButton.addEventListener('click', handleUserMessage);
+    }
+    
+    if (userInput) {
+        userInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                handleUserMessage();
+            }
         });
-    });
+    }
+    
+    // Suggestion chip event listeners
+    if (suggestionChips) {
+        suggestionChips.forEach(chip => {
+            chip.addEventListener('click', function() {
+                const query = this.getAttribute('data-query');
+                userInput.value = query;
+                handleUserMessage();
+            });
+        });
+    }
     
     // Handle user message submission
     function handleUserMessage() {
@@ -46,14 +253,17 @@ document.addEventListener('DOMContentLoaded', function() {
             // Add user message to chat
             addMessageToChat(message, 'user');
             
+            // Add to chat history
+            chatHistory.push({ role: 'user', content: message });
+            
             // Clear input
             userInput.value = '';
             
             // Show typing indicator
             showTypingIndicator();
             
-            // Get response from Gemini API
-            getGeminiResponse(message);
+            // Get response from OpenAI API
+            getAIResponse(message);
         }
     }
     
@@ -62,17 +272,24 @@ document.addEventListener('DOMContentLoaded', function() {
         const messageElement = document.createElement('div');
         messageElement.className = `message ${sender}-message`;
         
-        // Use innerHTML to support HTML content from Gemini
+        // Use innerHTML to support HTML content
         messageElement.innerHTML = `<p>${formatMessage(message)}</p>`;
         
-        chatMessages.appendChild(messageElement);
-        
-        // Scroll to bottom
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+        if (chatMessages) {
+            chatMessages.appendChild(messageElement);
+            
+            // Scroll to bottom
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
     }
     
     // Format message with HTML support
     function formatMessage(text) {
+        // If text already contains HTML tags, return it as is
+        if (text.startsWith('<p>') || text.startsWith('<div>')) {
+            return text;
+        }
+        
         // Convert URLs to clickable links
         text = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
         
@@ -92,8 +309,10 @@ document.addEventListener('DOMContentLoaded', function() {
         typingIndicator.innerHTML = '<span></span><span></span><span></span>';
         typingIndicator.id = 'typingIndicator';
         
-        chatMessages.appendChild(typingIndicator);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+        if (chatMessages) {
+            chatMessages.appendChild(typingIndicator);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
     }
     
     // Remove typing indicator
@@ -104,52 +323,108 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Get response from Gemini API
-    async function getGeminiResponse(message) {
+    // Get response from OpenAI API via your backend
+    async function getAIResponse(message) {
         try {
-            // Create a career guidance context for better responses
-            const careerContext = `You are an AI career advisor, specialized in providing career guidance, resume tips, interview preparation advice, and professional development suggestions. Your responses should be helpful, concise, and personalized to the user's needs. For career-specific questions, provide data-backed insights when available. The user's message is: "${message}"`;
+            // Get skills assessment data if available
+            let skillsContext = '';
+            const skillsData = sessionStorage.getItem('skillsAssessment');
             
-            // If you're using the actual Gemini API:
-            const response = await fetch(`${API_URL}?key=${API_KEY}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{
-                            text: careerContext
-                        }]
-                    }],
-                    generationConfig: {
-                        temperature: 0.7,
-                        topK: 40,
-                        topP: 0.95,
-                        maxOutputTokens: 1024,
-                    }
-                })
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                const botResponse = data.candidates[0].content.parts[0].text;
+            if (skillsData) {
+                const skills = JSON.parse(skillsData);
+                const assessmentResult = processSkillsAssessment(skills);
                 
-                // Remove typing indicator and add bot message
-                removeTypingIndicator();
-                addMessageToChat(botResponse, 'bot');
+                skillsContext = `The user has completed a skills assessment with the following results:
+                - Top skills: ${assessmentResult.topSkills.join(', ')}
+                - Strongest category: ${assessmentResult.topCategory}
+                - Industry interest: ${assessmentResult.topIndustry || 'None specified'}
+                
+                Technical skills score: ${assessmentResult.categories.technical.toFixed(1)}/5
+                Soft skills score: ${assessmentResult.categories.soft.toFixed(1)}/5
+                Industry knowledge score: ${assessmentResult.categories.industry.toFixed(1)}/5`;
+            }
+            
+            // Create the system message for career advice context
+            const systemMessage = `You are Smart Career Advisor, an AI-powered virtual career counselor designed to provide personalized guidance. Your goal is to help users navigate their career journeys by analyzing their background, skills, and aspirations. When interacting with users:
+            1. Ask for relevant information about their education, work experience, skills, and career interests if not provided
+            2. Analyze their profile to identify suitable career paths based on their qualifications and interests
+            3. Assess skill gaps for their desired roles and recommend specific resources for upskilling
+            4. Provide targeted advice for resume enhancement, interview preparation, and career progression
+            5. Share relevant industry insights and job market trends related to their field of interest
+            6. Maintain a conversational, supportive tone throughout the interaction
+            7. Present information in a structured, easy-to-understand format
+            
+            ${skillsContext}`;
+            
+            // Check if user is authenticated or has any authorization
+            if (currentUser || hasLoggedInBefore || bypassAuth || tempAccess || isAuthorized) {
+                try {
+                    console.log("Attempting to get AI response - user has authorization");
+                    // If using your backend API
+                    const headers = {
+                        'Content-Type': 'application/json'
+                    };
+                    
+                    // Add authentication token if user is currently logged in
+                    if (currentUser) {
+                        headers['Authorization'] = `Bearer ${await currentUser.getIdToken()}`;
+                    }
+                    
+                    const response = await fetch(BACKEND_API_URL, {
+                        method: 'POST',
+                        headers: headers,
+                        body: JSON.stringify({
+                            messages: [
+                                { role: "system", content: systemMessage },
+                                ...chatHistory
+                            ]
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const botResponse = data.response;
+                        
+                        // Add to chat history
+                        chatHistory.push({ role: 'assistant', content: botResponse });
+                        
+                        // Save conversation to Firebase if user is logged in
+                        if (currentUser) {
+                            try {
+                                await saveConversation(currentUser.uid, {
+                                    messages: chatHistory,
+                                    lastMessage: botResponse,
+                                    timestamp: new Date().toISOString()
+                                });
+                            } catch (error) {
+                                console.error('Error saving conversation:', error);
+                            }
+                        }
+                        
+                        // Remove typing indicator and add bot message
+                        removeTypingIndicator();
+                        addMessageToChat(botResponse, 'bot');
+                    } else {
+                        // If API call fails, use fallback response
+                        handleAPIError(message);
+                    }
+                } catch (error) {
+                    console.error('Error calling API:', error);
+                    handleAPIError(message);
+                }
             } else {
-                // If API call fails, use fallback response
-                handleGeminiError(message);
+                // If not authenticated and never logged in before, use fallback responses
+                console.log("User not authorized for AI responses, using fallback");
+                handleAPIError(message);
             }
         } catch (error) {
-            console.error('Error with Gemini API:', error);
-            handleGeminiError(message);
+            console.error('Error with AI API:', error);
+            handleAPIError(message);
         }
     }
     
     // Handle API errors with fallback responses
-    function handleGeminiError(message) {
+    function handleAPIError(message) {
         const lowercaseMessage = message.toLowerCase();
         
         // Remove typing indicator
@@ -217,4 +492,17 @@ What specific aspect of your career journey can I assist with today?`;
     
     // Initialize
     connectWithMainPage();
+
+    // Add event listeners for login and signup buttons
+    if (loginButton) {
+        loginButton.addEventListener("click", () => {
+            window.location.href = "login.html?redirect=ai-advisor.html";
+        });
+    }
+
+    if (signupButton) {
+        signupButton.addEventListener("click", () => {
+            window.location.href = "signup.html?redirect=ai-advisor.html";
+        });
+    }
 }); 

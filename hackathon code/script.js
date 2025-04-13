@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     socket.on('error', (errorMessage) => {
-        addMessageToChat(`Error: ${errorMessage}`, 'bot error');
+        addMessageToChat(Error: ${errorMessage}, 'bot error');
     });
     
     // Career API Interaction Functions
@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Get details about a specific career
     function getCareerDetails(career) {
-        return fetch(`/api/careers/details/${encodeURIComponent(career)}`)
+        return fetch(/api/careers/details/${encodeURIComponent(career)})
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -96,7 +96,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Show corresponding skill group
             const categoryId = this.getAttribute('data-category');
-            document.getElementById(`${categoryId}-skills`).classList.add('active');
+            document.getElementById(${categoryId}-skills).classList.add('active');
         });
     });
     
@@ -171,7 +171,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         })
                         .catch(error => {
                             console.error('Error:', error);
-                            addMessageToChat(`Error fetching details for ${career}. Please try again.`, 'bot error');
+                            addMessageToChat(Error fetching details for ${career}. Please try again., 'bot error');
                         });
                 }
             }
@@ -470,7 +470,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (chatMessages) {
             // Create message element
             const messageElement = document.createElement('div');
-            messageElement.className = `message ${sender}-message`;
+            messageElement.className = message ${sender}-message;
             messageElement.textContent = message;
             
             // Add to chat
